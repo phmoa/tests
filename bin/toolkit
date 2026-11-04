@@ -1,0 +1,43 @@
+#!/bin/bash
+
+#  tout ce que je fais c'est créer le virtualenv.
+
+set -e
+
+
+[[ $DEBUG = "yes" ]] && set -x
+
+# Default to RIP
+BUSINESS_DOMAIN=ip
+
+ROOT_DIR="$( cd -- "$(dirname "$0")/.." >/dev/null 2>&1 ; pwd -P )"
+
+# Check for --docker flag or docker_mode enviroment variable
+USE_DOCKER=false
+
+if [[ "${DOCKER_MODE,,}" == "true" ]] || [[ "${docker_mode,,}" == "true" ]]; then
+  USE_DOCKER=true
+fi
+
+for arg in "$@"; do
+  if [ "$arg" == "--docker" ]; then
+    USE_DOCKER=true
+    break
+  fi
+done
+
+# Only create and activate venv if NOT using docker
+if [ "$USE_DOCKER" = false ]; then
+  # Check python venv
+  if [ ! -d ${ROOT_DIR}/.env ]; then
+    # Create virtual env
+    $ROOT_DIR/bin/set_venv $ROOT_DIR
+  fi
+  source ${ROOT_DIR}/.env/bin/activate
+fi
+
+export PYTHONPATH=engine
+test -d ${ROOT_DIR}/logs/${BUSINESS_DOMAIN} || mkdir -p ${ROOT_DIR}/logs/${BUSINESS_DOMAIN}
+echo "############## Execution toolkit ##############" > ${ROOT_DIR}/logs/${BUSINESS_DOMAIN}/tkt_$(date '+%Y_%m_%d-%H_%M').log
+
+PYTHONPATH=$PYTHONPATH:${ROOT_DIR}/engine ANSIBLE_LOG_PATH=${ROOT_DIR}/logs/${BUSINESS_DOMAIN}/tkt_$(date '+%Y_%m_%d-%H_%M').log ${ROOT_DIR}/engine/${BUSINESS_DOMAIN}/wrapper.py $@
